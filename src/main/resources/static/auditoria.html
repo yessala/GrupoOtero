@@ -23,24 +23,24 @@
 
 <div class="container py-2">
 
-
     <div class="row mb-3">
         <div class="col text-center">
             <h1 class="balanza-title">🔍 HISTORIAL DE BOLSONES</h1>
-            <p class="text-muted mb-2">Módulo de Trazabilidad y Recuperación de Lotes (v1.0)</p>
+            <p class="text-muted mb-2">Módulo de Trazabilidad y Recuperación de Lotes (v2.0)</p>
             <hr>
         </div>
     </div>
 
     <div class="row g-4 justify-content-center">
-        <!-- Bloque de Búsqueda -->
+        <!-- Bloque de Búsqueda y Filtros Avanzados -->
         <div class="col-lg-5 col-md-8">
             <div class="card shadow-sm panel-balanza">
                 <div class="card-header bg-secondary text-white py-3">
-                    <h3 class="card-title mb-0 fs-5 text-center">Panel de Consulta Rápida</h3>
+                    <h3 class="card-title mb-0 fs-5 text-center">Panel de Consulta Avanzada</h3>
                 </div>
                 <div class="card-body p-4">
                     <form id="formAuditoria">
+                        <!-- 1. Identificador de bulto -->
                         <div class="mb-3">
                             <label for="idBolson" class="form-label fw-bold">Escanear o Tipear Código DNI del Bolsón:</label>
                             <input type="text"
@@ -51,7 +51,32 @@
                                    required
                                    autofocus>
                         </div>
-                        <div class="d-grid gap-2">
+
+                        <!-- 2. Tipo de Consulta -->
+                        <div class="mb-3">
+                            <label for="tipoReporte" class="form-label fw-bold small">Tipo de Reporte:</label>
+                            <select id="tipoReporte" class="form-select input-industrial-sm" required>
+                                <option value="ACTUAL">Estado Actual del Bolsón</option>
+                                <option value="HISTORIAL">Historial de Todos los Registros (Flujo)</option>
+                            </select>
+                        </div>
+
+                        <!-- 3. Filtro Temporal por Periodo (Colapsable dinámicamente) -->
+                        <div id="seccionFechas" class="d-none border-top pt-3 mt-3">
+                            <p class="fw-bold text-secondary small mb-2">📅 Filtrar por rango de fechas (Opcional):</p>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label for="fechaDesde" class="form-label small text-muted">Desde:</label>
+                                    <input type="date" id="fechaDesde" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-6">
+                                    <label for="fechaHasta" class="form-label small text-muted">Hasta:</label>
+                                    <input type="date" id="fechaHasta" class="form-control form-control-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
                             <button type="submit" class="btn btn-primary fs-5 fw-bold py-2">
                                 🔎 CONSULTAR TRAZABILIDAD
                             </button>
@@ -62,12 +87,14 @@
             </div>
         </div>
 
-        <!-- Panel de Resultados Dinámicos -->
-        <div class="col-lg-6 col-md-8">
-            <div id="panelResultado" class="alert alert-secondary shadow-sm h-100 d-flex flex-column justify-content-center text-center p-4">
-                <div id="resultadoIcon" class="fs-1 mb-3">🖥️</div>
-                <h4 id="resultadoTitulo" class="fw-bold">Monitor de Auditoría</h4>
-                <p id="resultadoMensaje" class="mb-0 fs-5 text-muted">Ingrese el identificador del bolsón arriba para extraer el histórico desde MySQL.</p>
+        <!-- Panel de Resultados Dinámicos (Scrolleable para listados largos) -->
+        <div class="col-lg-7 col-md-8">
+            <div id="panelResultado" class="alert alert-secondary shadow-sm h-100 d-flex flex-column justify-content-center p-4">
+                <div id="containerDinamico" class="w-100 text-center">
+                    <div id="resultadoIcon" class="fs-1 mb-3">🖥️</div>
+                    <h4 id="resultadoTitulo" class="fw-bold">Monitor de Auditoría</h4>
+                    <p id="resultadoMensaje" class="mb-0 fs-5 text-muted">Ingrese el identificador del bolsón arriba para extraer el histórico desde MySQL.</p>
+                </div>
             </div>
         </div>
     </div>

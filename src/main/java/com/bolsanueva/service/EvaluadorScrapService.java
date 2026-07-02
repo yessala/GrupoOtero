@@ -212,4 +212,28 @@ public class EvaluadorScrapService {
         // Genera el código físico usando las variables inyectadas de la clase superior
         barcodeService.generarCodigoBarraCompleto(envase.getIdBolson(), envase.getLoteActual().getIdLote());
     }
+
+    /**
+     * Extrae la línea de tiempo completa del contenedor, aplicando filtros de rango si se solicitan.
+     * CORRECCIÓN: Se añade el throws explícito para resolver el error de IntelliJ.
+     */
+    public java.util.List<HistorialUsos> obtenerHistorialMovimientos(String idBolson, String desdeStr, String hastaStr) throws ValidacionScrapException {
+
+        EnvaseFisico envase = envaseRepository.findById(idBolson)
+                .orElseThrow(() -> new ValidacionScrapException("El bulto '" + idBolson + "' no está registrado en el sistema."));
+
+        // Ahora este método va a compilar de una porque ya existe en el HistorialUsosRepository
+        java.util.List<HistorialUsos> listaCompleta = historialRepository.findByEnvaseOrderByFechaMovimientoAsc(envase);
+
+        if (desdeStr == null || hastaStr == null || desdeStr.isEmpty() || hastaStr.isEmpty()) {
+            return listaCompleta;
+        }
+
+        LocalDateTime fechaInicio = java.time.LocalDate.parse(desdeStr).atStartOfDay();
+        LocalDateTime fechaFin = java.time.LocalDate.parse(hastaStr).atTime(23, 59, 59);
+
+        return listaCompleta.stream()
+                .filter(log -> !log.getFechaMovimiento().isBefore(fechaInicio) && !log.getFechaMovimiento().isAfter(fechaFin))
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

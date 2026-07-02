@@ -163,4 +163,25 @@ public class BolsonesController {
             return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
+
+    // ========================================================================
+    // NUEVO ENDPOINT 7: HISTORIAL COMPLETO Y FILTRADO POR FECHAS (BUENAS PRÁCTICAS)
+    // ========================================================================
+    @GetMapping("/historial/{idBolson}")
+    public ResponseEntity<?> consultarHistorialCompleto(
+            @PathVariable String idBolson,
+            @RequestParam(value = "desde", required = false) String desdeStr,
+            @RequestParam(value = "hasta", required = false) String hastaStr) {
+        try {
+            // Solicitamos la lista cronológica de usos al service core
+            java.util.List<com.bolsanueva.model.HistorialUsos> historial =
+                    evaluadorService.obtenerHistorialMovimientos(idBolson.toUpperCase(), desdeStr, hastaStr);
+
+            return ResponseEntity.ok(historial);
+        } catch (ValidacionScrapException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        }
+    }
 }

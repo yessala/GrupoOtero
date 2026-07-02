@@ -214,4 +214,29 @@ public class EvaluadorScrapService {
 
         return envase;
     }
+
+    // Agregá estos métodos al final de tu EvaluadorScrapService.java:
+
+    @Autowired
+    private com.bolsanueva.repository.EnvaseFisicoRepository envaseRepository; // Asegura tu inyección
+
+    @Autowired
+    private com.bolsanueva.service.BarcodeService barcodeService;
+
+    public EnvaseFisico buscarPorId(String idBolson) {
+        return envaseRepository.findById(idBolson)
+                .orElseThrow(() -> new com.bolsanueva.exception.ValidacionScrapException("El bulto '" + idBolson + "' no se encuentra registrado en el SGC."));
+    }
+
+    public void dispararReimpresionEtiqueta(String idBolson) throws Exception {
+        EnvaseFisico envase = envaseRepository.findById(idBolson)
+                .orElseThrow(() -> new com.bolsanueva.exception.ValidacionScrapException("El envase especificado no existe."));
+
+        if (envase.getLoteActual() == null) {
+            throw new com.bolsanueva.exception.ValidacionScrapException("El bulto existe pero aún no registra pesaje ni lote asignado en báscula.");
+        }
+
+        // Invoca tu método de barras compacto v6.7
+        barcodeService.generarCodigoBarraCompleto(envase.getIdBolson(), envase.getLoteActual().getIdLote());
+    }
 }

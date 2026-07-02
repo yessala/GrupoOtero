@@ -36,11 +36,12 @@ async function registrarPesaje(event) {
     }
 
     // VALIDACIÓN 2: Evitar placeholder de color
-    if (color.toLowerCase() === "color" || color === "") {
+// VALIDACIÓN 2: Asegurar que el operario seleccionó una opción válida del maestro
+    if (color === "" || idBolson === "") {
         statusBalanza.className = "alert alert-danger shadow-sm p-4 text-center h-100";
         statusIcon.innerText = "🚨";
         statusTitulo.innerText = "DATOS INCOMPLETOS";
-        statusMensaje.innerText = "Por favor, seleccione un color válido (Blanco o Color) para estructurar el lote.";
+        statusMensaje.innerText = "Por favor, seleccione todos los parámetros obligatorios del bulto.";
         return;
     }
 

@@ -2,48 +2,49 @@ package com.bolsanueva.controller;
 
 import com.bolsanueva.model.EnvaseFisico;
 import com.bolsanueva.model.TrazabilidadLotes;
-import com.bolsanueva.model.LoteResponse;
 import com.bolsanueva.service.EvaluadorScrapService;
 import com.bolsanueva.exception.ValidacionScrapException;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * CONTROLADOR REST API - ECOSISTEMA LOGÍSTICO SGC
  * @author Autor: Yessalim Salazar
- * @version 6.0 (Puntos de Acceso para Interfaces de Planta Dedicadas)
- * * Centraliza los disparos de los lectores de códigos de barras en las básculas,
- * tolvas de vaciado y muelles de despacho interplanta.
+ * @version 6.7 (Estándares REST Estrictos y Módulo de Auditoría Integrado)
  */
 @RestController
 @RequestMapping("/api/bolsones")
-@CrossOrigin(origins = "*") // Enlace directo para tu index.html / frontend local
+@CrossOrigin(origins = "*")
 public class BolsonesController {
 
     @Autowired
     private EvaluadorScrapService evaluadorService;
 
-    // ------------------------------------------------------------------------
+    // ========================================================================
     // ENDPOINT 1: BOTÓN NUEVO ENVASE (ALTA E IMPRESIÓN)
-    // ------------------------------------------------------------------------
+    // ========================================================================
     @PostMapping("/nuevo")
     public ResponseEntity<?> registrarNuevoEnvase(@RequestParam("tipoEnvase") String tipoEnvase) {
         try {
-            // Invoca al core para calcular correlativo, persistir y mandar a imprimir
             EnvaseFisico nuevo = evaluadorService.registrarEImprimirNuevoEnvase(tipoEnvase.toUpperCase());
-            return ResponseEntity.ok(nuevo);
+            return ResponseEntity.status(HttpStatus.CREATED).body(nuevo);
+        } catch (ValidacionScrapException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("ERROR ALTA: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
 
-    // ------------------------------------------------------------------------
-    // ENDPOINT 2: BALANZA - REGISTRO DE PESO Y ASIGNACIÓN DE LOTE
-    // ------------------------------------------------------------------------
-@PostMapping("/llenar")
-    public LoteResponse procesarLlenadoBalanza(
+    // ========================================================================
+    // ENDPOINT 2: BALANZA - REGISTRO DE PESO Y ASIGNACIÓN DE LOTE (BUENAS PRÁCTICAS)
+    // ========================================================================
+    @PostMapping("/llenar")
+    public ResponseEntity<?> procesarLlenadoBalanza(
             @RequestParam("idBolson") String idBolson,
             @RequestParam("peso") double pesoEntrada,
             @RequestParam("procedencia") String procedencia,
@@ -53,78 +54,113 @@ public class BolsonesController {
             @RequestParam("color") String colorDestino) {
         try {
             java.time.LocalDateTime ahora = java.time.LocalDateTime.now();
-            String tipoEnvase = idBolson.substring(0, 6).toUpperCase(); // "ENV-01"
+            String tipoEnvase = idBolson.substring(0, 6).toUpperCase();
 
-            // 1. Instanciar la ficha de auditoría temporal
             TrazabilidadLotes fichaMaterial = new TrazabilidadLotes();
             fichaMaterial.setProcedencia(procedencia.toUpperCase());
             fichaMaterial.setMaterial(material.toUpperCase());
             fichaMaterial.setEsLaminado(laminadoStr.equalsIgnoreCase("LY"));
             fichaMaterial.setTieneTinta(tintaStr.equalsIgnoreCase("TY"));
             fichaMaterial.setColorDestino(colorDestino.toUpperCase());
-            fichaMaterial.setFechaPesaje(ahora); // Guardamos DD/MM/YYYY HH:MM completo en BD
+            fichaMaterial.setFechaPesaje(ahora);
 
-            // 2. Delegamos al Service para que busque el correlativo persistente y arme el lote definitivo
             EnvaseFisico envaseProcesado = evaluadorService.procesarLlenadoConCorrelativo(
-                    idBolson.toUpperCase(), 
-                    pesoEntrada, 
-                    tipoEnvase, 
+                    idBolson.toUpperCase(),
+                    pesoEntrada,
+                    tipoEnvase,
                     fichaMaterial
             );
 
-            return new LoteResponse(
-                    envaseProcesado.getIdBolson(),
-                    envaseProcesado.getLoteActual().getIdLote(), // El lote generado con su XXXX único
-                    envaseProcesado.getUbicacionActual(),
-                    "PROCESADO_OK"
-            );
+            // Retornamos el objeto persistido real con estado HTTP 200 OK
+            return ResponseEntity.ok(envaseProcesado);
 
-        } catch (com.bolsanueva.exception.ValidacionScrapException e) {
-            return new LoteResponse(idBolson, null, null, e.getMessage());
+        } catch (ValidacionScrapException e) {
+            // Buenas prácticas: Si el negocio falla, devolvemos un 400 Bad Request explícito
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         } catch (Exception e) {
-            return new LoteResponse(idBolson, null, null, "ERROR CONTROLADOR: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
 
-    // ------------------------------------------------------------------------
+    // ========================================================================
     // ENDPOINT 3: ÁREA DE VACIADO - LIBERACIÓN DE ENVASES EN TOLVAS
-    // ------------------------------------------------------------------------
+    // ========================================================================
     @PostMapping("/vaciar")
     public ResponseEntity<?> procesarVaciadoTolva(
             @RequestParam("idBolson") String idBolson,
             @RequestParam("estacion") String estacionTrabajo) {
         try {
-            // Libera el bulto y lo vuelve a poner DISPONIBLE en el depósito
             EnvaseFisico liberado = evaluadorService.procesarVaciadoEnTolva(
-                    idBolson.toUpperCase(), 
+                    idBolson.toUpperCase(),
                     estacionTrabajo.toUpperCase()
             );
-            return ResponseEntity.ok("EL ENVASE " + liberado.getIdBolson() + " PASÓ A ESTADO: " + liberado.getEstado());
+            return ResponseEntity.ok(Map.of(
+                    "status", "OK",
+                    "mensaje", "EL ENVASE " + liberado.getIdBolson() + " PASÓ A ESTADO: " + liberado.getEstado()
+            ));
         } catch (ValidacionScrapException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("ERROR VACIADO: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
 
-    // ------------------------------------------------------------------------
+    // ========================================================================
     // ENDPOINT 4: LOGÍSTICA DE SALIDA - DESPACHO INTERPLANTA
-    // ------------------------------------------------------------------------
+    // ========================================================================
     @PostMapping("/despacho")
     public ResponseEntity<?> despacharBulto(
             @RequestParam("idBolson") String idBolson,
             @RequestParam("destino") String plantaDestino) {
         try {
-            // Cambia la ubicación en tiempo real (Ej: PLANTA_OTE o PLANTA_AGR)
             EnvaseFisico despachado = evaluadorService.despacharInterplanta(
-                    idBolson.toUpperCase(), 
+                    idBolson.toUpperCase(),
                     plantaDestino.toUpperCase()
             );
-            return ResponseEntity.ok("DESPACHADO CON ÉXITO A: " + despachado.getUbicacionActual());
+            return ResponseEntity.ok(Map.of(
+                    "status", "OK",
+                    "mensaje", "DESPACHADO CON ÉXITO A: " + despachado.getUbicacionActual()
+            ));
         } catch (ValidacionScrapException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("ERROR LOGÍSTICA: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        }
+    }
+
+    // ========================================================================
+    // NUEVO ENDPOINT 5: AUDITORÍA - CONSULTA DE ESTADO HISTÓRICO
+    // ========================================================================
+    @GetMapping("/consultar/{idBolson}")
+    public ResponseEntity<?> consultarEstadoTrazabilidad(@PathVariable String idBolson) {
+        try {
+            // Delegamos la búsqueda al service para mantener las capas separadas
+            EnvaseFisico envase = evaluadorService.buscarPorId(idBolson.toUpperCase());
+            return ResponseEntity.ok(envase);
+        } catch (ValidacionScrapException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        }
+    }
+
+    // ========================================================================
+    // NUEVO ENDPOINT 6: REIMPRESIÓN - REGENERACIÓN DE ETIQUETA DAÑADA
+    // ========================================================================
+    @GetMapping("/reimprimir/{idBolson}")
+    public ResponseEntity<?> reimprimirEtiquetaDeteriorada(@PathVariable String idBolson) {
+        try {
+            evaluadorService.dispararReimpresionEtiqueta(idBolson.toUpperCase());
+            return ResponseEntity.ok(Map.of(
+                    "status", "OK",
+                    "mensaje", "Comando de impresión térmica enviado con éxito al servidor de planta."
+            ));
+        } catch (ValidacionScrapException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
 }

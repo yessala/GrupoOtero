@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGC - Auditoría y Reimpresión</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/balanza.css">
+</head>
+<body>
+
+<div class="container py-4">
+    <div class="row mb-3">
+        <div class="col text-center">
+            <h1 class="balanza-title">🔍 AUDITORÍA Y REIMPRESIÓN DE ETIQUETAS</h1>
+            <p class="text-muted mb-2">Módulo de Trazabilidad y Recuperación de Lotes (v1.0)</p>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+        <!-- Bloque de Búsqueda -->
+        <div class="col-lg-5 col-md-8">
+            <div class="card shadow-sm panel-balanza">
+                <div class="card-header bg-secondary text-white py-3">
+                    <h3 class="card-title mb-0 fs-5 text-center">Panel de Consulta Rápida</h3>
+                </div>
+                <div class="card-body p-4">
+                    <form id="formAuditoria">
+                        <div class="mb-3">
+                            <label for="idBolson" class="form-label fw-bold">Escanear o Tipear Código DNI del Bolsón:</label>
+                            <input type="text"
+                                   id="idBolson"
+                                   class="form-control input-industrial text-uppercase"
+                                   placeholder="ENV-XX-XXXX"
+                                   maxlength="12"
+                                   required
+                                   autofocus>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary fs-5 fw-bold py-2">
+                                🔎 CONSULTAR TRAZABILIDAD
+                            </button>
+                            <a href="balanza.html" class="btn btn-outline-dark btn-sm mt-2">⬅️ Volver a Terminal Balanza</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Resultados Dinámicos -->
+        <div class="col-lg-6 col-md-8">
+            <div id="panelResultado" class="alert alert-secondary shadow-sm h-100 d-flex flex-column justify-content-center text-center p-4">
+                <div id="resultadoIcon" class="fs-1 mb-3">🖥️</div>
+                <h4 id="resultadoTitulo" class="fw-bold">Monitor de Auditoría</h4>
+                <p id="resultadoMensaje" class="mb-0 fs-5 text-muted">Ingrese el identificador del bolsón arriba para extraer el histórico desde MySQL.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/auditoria.js"></script>
+</body>
+</html>

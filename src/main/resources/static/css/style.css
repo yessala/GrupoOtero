@@ -1,0 +1,78 @@
+/* ==========================================================================
+   ESTILOS GENERALES - INTERFAZ INDUSTRIAL SGC
+   ========================================================================== */
+body {
+    background-color: #f4f6f9;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.panel-industrial {
+    border-radius: 8px;
+    border: 1px solid #dcdfe6;
+}
+
+.btn-industrial {
+    font-size: 1.4rem;
+    padding: 1.5rem;
+    font-weight: bold;
+    border-width: 2px;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-industrial:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.desc-btn {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #6c757d;
+    margin-left: 10px;
+}
+
+.btn-industrial:hover .desc-btn {
+    color: #fff; /* Cambio de color para legibilidad al hacer hover */
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN & MEDIA QUERIES (ADAPTACIÓN PARA TERMINALES DE PLANTA)
+   ========================================================================== */
+
+/* Ajustes para Tablets o pantallas medianas de estaciones de balanza */
+@media (max-width: 992px) {
+    .btn-industrial {
+        font-size: 1.25rem;
+        padding: 1.2rem;
+    }
+    .desc-btn {
+        display: block; /* Manda la descripción abajo si el espacio se reduce */
+        margin-left: 32px;
+        font-size: 0.95rem;
+    }
+}
+
+/* Ajustes críticos para pantallas táctiles chicas o colectores de datos móviles */
+@media (max-width: 576px) {
+    body {
+        padding: 10px;
+    }
+    .container {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    h1.display-5 {
+        font-size: 1.8rem;
+    }
+    .btn-industrial {
+        font-size: 1.1rem;
+        padding: 1rem;
+        text-align: center !important;
+    }
+    .desc-btn {
+        display: none; /* Oculta descripciones para evitar desbordes en colectores */
+    }
+    .badge {
+        font-size: 0.9rem;
+    }
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGC - Control de Pesaje en Balanza</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/balanza.css">
+</head>
+<body>
+
+    <div class="container py-4">
+        <div class="row mb-3">
+            <div class="col text-center">
+                <h1 class="balanza-title">⚖️ CONTROL DE PESAJE EN BALANZA</h1>
+                <p class="text-muted mb-2">Lote y base de datos (v6.0)</p>
+                <hr>
+            </div>
+        </div>
+
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-6 col-md-8">
+                <div class="card shadow-sm panel-balanza">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h3 class="card-title mb-0 fs-5 text-center">Formulario de Control de Entrada</h3>
+                    </div>
+                    <div class="card-body p-4">
+                        <form id="formBalanza" onsubmit="registrarPesaje">
+                            
+                            <div class="mb-3">
+                                <label for="idBolson" class="form-label fw-bold">1. Escanear Código DNI del Bolsón:</label>
+                                <input type="text" id="idBolson" class="form-control input-industrial text-uppercase" placeholder="ENV-XX-XXXX" required autofocus>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="pesoNeto" class="form-label fw-bold">2. Peso Registrado (Kg):</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.1" id="pesoNeto" class="form-control input-industrial display-peso" placeholder="0.0" required>
+                                    <span class="input-group-text fw-bold bg-secondary text-white fs-4">KG</span>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-4">
+                                <div class="col-sm-6">
+                                    <label for="procedencia" class="form-label fw-bold small">Procedencia Planta:</label>
+                                    <select id="procedencia" class="form-select input-industrial-sm" required>
+                                        <option value="AGR">AGR (Agropoly)</option>
+                                        <option value="OTE">OTE (Textil Otero)</option>
+                                        <option value="UNI">UNI (UniBag)</option> 
+                                    </select>
+                                </div>                                
+                                <div class="col-sm-6">
+                                    <label for="material" class="form-label fw-bold small">Material:</label>
+                                    <select id="material" class="form-select input-industrial-sm" required>
+                                        <option value="ADST">ADST (Scrap Bolsas Adstar)</option>
+                                        <option value="RAFI">RAFI (Rafia No Conforme / Limpia Cañitos)</option>
+                                        <option value="ESLI">ESLI (Scrap Cintillas y Eslingas)</option>
+                                        <option value="LOFI">LOFI (Desperdicio de Lofil)</option>
+                                        <option value="COSI">COSI (Scrap Bolsas Fondo Cosido)</option>
+                                        <option value="TORT">TORT (Desperdicio Laminadora en Bloque)</option>
+                                        <option value="PP">PP Estándar</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4 mt-2">
+                                    <label for="laminado" class="form-label fw-bold small">Laminado:</label>
+                                    <select id="laminado" class="form-select input-industrial-sm" required>
+                                        <option value="LN">NO (LN)</option>
+                                        <option value="LY">SÍ (LS)</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4 mt-2">
+                                    <label for="tinta" class="form-label fw-bold small">Tinta:</label>
+                                    <select id="tinta" class="form-select input-industrial-sm" required>
+                                        <option value="TN">NO (TN)</option>
+                                        <option value="TY">SÍ (TS)</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4 mt-2">
+                                    <label for="color" class="form-label fw-bold small">Color:</label>
+                                    <select id="color" class="form-select input-industrial-sm" required>
+                                        <option value="BLANCO">Blanco</option>
+                                        <option value="COLOR">Color</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success btn-guardar fs-4 fw-bold py-3">
+                                    💾 PROCESAR Y GUARDAR PESAJE
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5 col-md-8">
+                <div id="statusBalanza" class="alert alert-secondary shadow-sm h-100 d-flex flex-column justify-content-center text-center p-4">
+                    <div id="statusIcon" class="fs-1 mb-3">📡</div>
+                    <h4 id="statusTitulo" class="fw-bold">Balanza en Espera</h4>
+                    <p id="statusMensaje" class="mb-0 fs-5 text-muted">Coloque el bolsón en la balanza y escanee el DNI del contenedor para iniciar.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/balanza.js"></script>
+</body>
+</html>

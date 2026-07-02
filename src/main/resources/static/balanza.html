@@ -25,11 +25,12 @@
                         <h3 class="card-title mb-0 fs-5 text-center">Formulario de Control de Entrada</h3>
                     </div>
                     <div class="card-body p-4">
-                        <form id="formBalanza" onsubmit="registrarPesaje">
+                        <form id="formBalanza">
                             
                             <div class="mb-3">
                                 <label for="idBolson" class="form-label fw-bold">1. Escanear Código DNI del Bolsón:</label>
-                                <input type="text" id="idBolson" class="form-control input-industrial text-uppercase" placeholder="ENV-XX-XXXX" required autofocus>
+                                <input type="text" id="idBolson" class="form-control input-industrial text-uppercase" placeholder="ENV-XX-XXXX" maxlength="12"
+                                       pattern="^ENV-\d{2}-\d{4}$" title="El formato debe ser estrictamente ENV-XX-XXXX (Ejemplo: ENV-01-0001)" required autofocus>
                             </div>
 
                             <div class="mb-3">

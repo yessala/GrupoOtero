@@ -1,65 +1,73 @@
 /**
- * LÓGICA DE CONTROLADORA TERMINAL BALANZA v6.5
+ * LÓGICA DE CONTROLADORA TERMINAL BALANZA v6.7
  * @author Autor: Yessalim Salazar
- * @version 6.5 (Corrección de Mapeo de Objetos Anidados del SGC)
+ * @version 6.7 (Corrección de Ámbito de Eventos y Desacoplamiento)
  */
 
+// =========================================================================
+// 1. FUNCIÓN CORE: PROCESAMIENTO ASÍNCRONO DEL PESAJE
+// =========================================================================
 async function registrarPesaje(event) {
-    event.preventDefault();
+    event.preventDefault(); // ¡CLAVE! Evita que la página se limpie/recargue al hacer clic
 
-    // Capturamos el ID y removemos posibles espacios
+    // Instanciamos componentes del DOM para las alertas
+    const statusBalanza = document.getElementById('statusBalanza');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitulo = document.getElementById('statusTitulo');
+    const statusMensaje = document.getElementById('statusMensaje');
+
+    // Capturamos las entradas de los componentes de la báscula
     const idBolson = document.getElementById('idBolson').value.trim().toUpperCase();
     const pesoNeto = document.getElementById('pesoNeto').value;
-    
-    // Captura limpia de los selectores obligatorios
     const material = document.getElementById('material').value;
     const procedencia = document.getElementById('procedencia').value;
     const laminado = document.getElementById('laminado').value;
     const tinta = document.getElementById('tinta').value;
     const color = document.getElementById('color').value;
 
-    // BLINDAJE: Si no seleccionó un color válido, frena la transacción antes de llamar al servidor
+    // VALIDACIÓN 1: Expresión regular del SGC para el bulto
+    const regexFormatoBolsón = /^ENV-\d{2}-\d{4}$/;
+    if (!regexFormatoBolsón.test(idBolson)) {
+        statusBalanza.className = "alert alert-danger shadow-sm p-4 text-center h-100";
+        statusIcon.innerText = "🚨";
+        statusTitulo.innerText = "FORMATO INVÁLIDO";
+        statusMensaje.innerText = `El código '${idBolson}' no cumple con la norma. Debe ser ENV-XX-XXXX (Ej: ENV-01-0001).`;
+        return;
+    }
+
+    // VALIDACIÓN 2: Evitar placeholder de color
     if (color.toLowerCase() === "color" || color === "") {
         statusBalanza.className = "alert alert-danger shadow-sm p-4 text-center h-100";
         statusIcon.innerText = "🚨";
         statusTitulo.innerText = "DATOS INCOMPLETOS";
         statusMensaje.innerText = "Por favor, seleccione un color válido (Blanco o Color) para estructurar el lote.";
-        return; // Frena la ejecución
+        return;
     }
 
-    const statusBalanza = document.getElementById('statusBalanza');
-    const statusIcon = document.getElementById('statusIcon');
-    const statusTitulo = document.getElementById('statusTitulo');
-    const statusMensaje = document.getElementById('statusMensaje');
-
-    // Feedback visual inmediato para el operador de la báscula
+    // Feedback visual de espera en la terminal
     statusBalanza.className = "alert alert-warning shadow-sm p-4 text-center h-100 animate-pulse";
     statusIcon.innerText = "⏳";
     statusTitulo.innerText = "PROCESANDO TRANSACCIÓN...";
     statusMensaje.innerText = "Calculando estructura inmutable de lote según tipo de envase asignado...";
 
     try {
-        // Construimos la URL enviando los parámetros desagregados que requiere el controlador
         const url = `http://localhost:8080/api/bolsones/llenar?idBolson=${idBolson}&peso=${pesoNeto}&material=${material}&procedencia=${procedencia}&laminado=${laminado}&tinta=${tinta}&color=${color}`;
-        
-        const response = await fetch(url, { 
+
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         const data = await response.json();
 
-        // CORRECCIÓN: Validamos usando la nueva estructura anidada del SGC (loteActual)
         if (!response.ok || data.status === "ERROR" || !data.loteActual || !data.loteActual.idLote) {
-            throw new Error(data.mensaje || "Fallo en la validación del SGC. Verifique estado del bolsón o conexión con báscula.");
+            throw new Error(data.mensaje || "Fallo en la validación del SGC. Verifique estado del bolsón.");
         }
 
-        // REGISTRO Y DISCRIMINACIÓN EXITOSA
+        // RENDERIZADO DE ÉXITO EN EL PANEL VERDE
         statusBalanza.className = "alert alert-success shadow-sm p-4 text-center h-100";
         statusIcon.innerText = "🚀";
         statusTitulo.innerText = "¡PESAJE REGISTRADO!";
-        
-        // CORRECCIÓN DE MAPEOS: Se cambió data.idLote por data.loteActual.idLote
         statusMensaje.innerHTML = `
             <div class="text-start border-top pt-3 mt-2 fs-5">
                 <strong>Contenedor ID:</strong> <span class="badge bg-dark">${data.idBolson}</span><br>
@@ -70,15 +78,26 @@ async function registrarPesaje(event) {
             </div>
         `;
 
-        // Limpieza automática del formulario para agilizar el próximo pesaje en línea
+        // El formulario solo se limpia si la operación en el servidor fue exitosa
         document.getElementById('formBalanza').reset();
         document.getElementById('idBolson').focus();
 
     } catch (error) {
-        // Control de excepciones (Ej: "ENVASE DESCARTADO - NO UTILIZAR")
         statusBalanza.className = "alert alert-danger shadow-sm p-4 text-center h-100";
         statusIcon.innerText = "🚨";
         statusTitulo.innerText = "OPERACIÓN RECHAZADA";
         statusMensaje.innerText = error.message;
     }
 }
+
+// =========================================================================
+// 2. ENLACE DE EVENTOS DEL SISTEMA (AFUERA DE LA FUNCIÓN ASÍNCRONA)
+// =========================================================================
+
+// Escuchador moderno del submit del formulario
+document.getElementById('formBalanza').addEventListener('submit', registrarPesaje);
+
+// Filtro liviano para pasar a mayúsculas automático sin trabar la ráfaga de la pistola
+document.getElementById('idBolson').addEventListener('input', function (e) {
+    e.target.value = e.target.value.toUpperCase();
+});

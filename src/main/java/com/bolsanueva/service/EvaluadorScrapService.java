@@ -19,7 +19,7 @@ import java.util.Optional;
 /**
  * SERVICIO CORE DEL SGC (SISTEMA DE GESTIÓN DE CALIDAD) - PLANTA RECUPERADORA
  * @author Autor: Yessalim Salazar
- * @version 6.3 (Nomenclatura Homologada a 5 Dígitos y Timestamp ISO)
+ * @version 6.8 (Buenas Prácticas, Enhanced Switch y Limpieza de Ámbitos)
  */
 @Service
 public class EvaluadorScrapService {
@@ -41,7 +41,6 @@ public class EvaluadorScrapService {
         Optional<Integer> maxCorrelativo = envaseRepository.findMaxCorrelativoByTipoEnvase(tipoEnvase);
         int siguienteNumero = maxCorrelativo.orElse(0) + 1;
 
-        // El DNI invariable del bulto se mantiene con el formato de alta base
         String idBolson = tipoEnvase + "-" + String.format("%04d", siguienteNumero);
 
         EnvaseFisico nuevoEnvase = new EnvaseFisico();
@@ -60,7 +59,7 @@ public class EvaluadorScrapService {
 
     @Transactional
     public EnvaseFisico procesarLlenadoConCorrelativo(String idBolson, double pesoNeto, String tipoEnvase, TrazabilidadLotes loteObjeto) throws Exception {
-        
+
         if (pesoNeto <= 0) {
             throw new ValidacionScrapException("ERROR SGC: El peso registrado debe ser mayor a 0 kg. Operación abortada.");
         }
@@ -72,69 +71,42 @@ public class EvaluadorScrapService {
             throw new ValidacionScrapException("🚨 ENVASE DESCARTADO - NO UTILIZAR");
         }
 
-        // 1. Contador perpetuo por tipo de envase
         long totalHistorico = loteRepository.countByTipoEnvase(tipoEnvase);
         long proximoCorrelativo = totalHistorico + 1;
-        
-        // CORRECCIÓN: Ajustado a 5 dígitos fijos según especificación de planta (Ej: "00001")
+
         String xxxxx = String.format("%05d", proximoCorrelativo);
-        
-        // 2. Fragmentación de fecha del servidor (MMYY)
         String mmyy = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMyy"));
         String inicialColor = loteObjeto.getColorDestino().substring(0, 1).toUpperCase();
-        String loteEstructurado = "";
 
-        // 3. Matriz Oficial de Loteo SGC de la Planta
-        switch (tipoEnvase) {
-            case "ENV-01":
-                // MMYY-XXXXX-PROCEDENCIA-MATERIAL-LAMINADO-TINTA-COLOR
-                loteEstructurado = String.format("%s-%s-%s-%s-%s-%s-%s",
-                        mmyy, xxxxx, 
-                        loteObjeto.getProcedencia().toUpperCase(), 
-                        loteObjeto.getMaterial().toUpperCase(),
-                        loteObjeto.isEsLaminado() ? "LY" : "LN",
-                        loteObjeto.isTieneTinta() ? "TY" : "TN",
-                        inicialColor);
-                break;
-                
-            case "ENV-02":
-                // MMYY-XXXXX-PP-COLOR
-                loteEstructurado = String.format("%s-%s-PP-%s", mmyy, xxxxx, inicialColor);
-                break;
-                
-            case "ENV-03":
-                // MMYY-XXXXX-TRIP-COLOR
-                loteEstructurado = String.format("%s-%s-TRIP-%s", mmyy, xxxxx, inicialColor);
-                break;
-                
-            case "ENV-04":
-                // MMYY-XXXXX-TRIL-COLOR
-                loteEstructurado = String.format("%s-%s-TRIL-%s", mmyy, xxxxx, inicialColor);
-                break;
-                
-            case "ENV-05":
-                // MMYY-XXXXX-PPL-COLOR (Basado en ejemplo: 0626-00001-PPL-B)
-                loteEstructurado = String.format("%s-%s-PPL-%s", mmyy, xxxxx, inicialColor);
-                break;
-                
-            default:
-                throw new ValidacionScrapException("🚨 Tipo de contenedor '" + tipoEnvase + "' no paramétrico en SGC.");
-        }
+        // BUENAS PRÁCTICAS: Enhanced Switch (Switch como expresión moderno, evita olvidos de break y variables redundantes)
+        String loteEstructurado = switch (tipoEnvase) {
+            case "ENV-01" -> String.format("%s-%s-%s-%s-%s-%s-%s",
+                    mmyy, xxxxx,
+                    loteObjeto.getProcedencia().toUpperCase(),
+                    loteObjeto.getMaterial().toUpperCase(),
+                    loteObjeto.isEsLaminado() ? "LY" : "LN",
+                    loteObjeto.isTieneTinta() ? "TY" : "TN",
+                    inicialColor);
 
-        // 4. Inyección y Persistencia de la Ficha de Contenido Normativa
+            case "ENV-02" -> String.format("%s-%s-PP-%s", mmyy, xxxxx, inicialColor);
+            case "ENV-03" -> String.format("%s-%s-TRIP-%s", mmyy, xxxxx, inicialColor);
+            case "ENV-04" -> String.format("%s-%s-TRIL-%s", mmyy, xxxxx, inicialColor);
+            case "ENV-05" -> String.format("%s-%s-PPL-%s", mmyy, xxxxx, inicialColor);
+
+            default -> throw new ValidacionScrapException("🚨 Tipo de contenedor '" + tipoEnvase + "' no paramétrico en SGC.");
+        };
+
         loteObjeto.setIdLote(loteEstructurado);
         loteObjeto.setCorrelativoNumerico(proximoCorrelativo);
         loteObjeto.setPesoNeto(pesoNeto);
-        loteObjeto.setFechaPesaje(LocalDateTime.now()); // Registra DD/MM/YYYY HH:MM:SS automáticamente
+        loteObjeto.setFechaPesaje(LocalDateTime.now());
         TrazabilidadLotes lotePersistido = loteRepository.save(loteObjeto);
 
-        // 5. Actualización del maestro de contenedores
         envase.setEstado("NO_DISPONIBLE");
         envase.setUbicacionActual("DEPOSITO_TRANSITO");
         envase.setLoteActual(lotePersistido);
         envase = envaseRepository.save(envase);
 
-        // 6. Registro del track de auditoría industrial
         HistorialUsos log = new HistorialUsos();
         log.setEnvase(envase);
         log.setLoteAsociado(lotePersistido);
@@ -145,13 +117,11 @@ public class EvaluadorScrapService {
         log.setDetalleAuditoria("Pesaje en báscula completado con éxito bajo norma ISO.");
         historialRepository.save(log);
 
-        // 7. Salida a disco de etiqueta física PNG
         barcodeService.generarCodigoBarraCompleto(loteEstructurado, loteEstructurado);
 
         return envase;
     }
 
-    // MÉTODO PUENTE PARA COMPATIBILIDAD CON APPTEST
     @Transactional
     public EnvaseFisico procesarLlenadoEnBalanza(String idBolson, double pesoNeto, String loteIgnorado, TrazabilidadLotes loteObjeto) throws Exception {
         String tipoEnvase = idBolson.substring(0, 6).toUpperCase();
@@ -197,7 +167,7 @@ public class EvaluadorScrapService {
         }
 
         TrazabilidadLotes loteContenido = envase.getLoteActual();
-        String ubicacionDestinoMapeada = "PLANTA_" + plantaDestino.toUpperCase(); 
+        String ubicacionDestinoMapeada = "PLANTA_" + plantaDestino.toUpperCase();
 
         envase.setUbicacionActual(ubicacionDestinoMapeada);
         envase = envaseRepository.save(envase);
@@ -215,28 +185,31 @@ public class EvaluadorScrapService {
         return envase;
     }
 
-    // Agregá estos métodos al final de tu EvaluadorScrapService.java:
+    // ========================================================================
+    // SECCIÓN DE AUDITORÍA Y TRAZABILIDAD (UNIFICADA Y LIMPIA DE DUPLICADOS)
+    // ========================================================================
 
-    @Autowired
-    private com.bolsanueva.repository.EnvaseFisicoRepository envaseRepository; // Asegura tu inyección
-
-    @Autowired
-    private com.bolsanueva.service.BarcodeService barcodeService;
-
-    public EnvaseFisico buscarPorId(String idBolson) {
+    /**
+     * Localiza los datos históricos del contenedor.
+     * Propaga de forma explícita las excepciones controladas del negocio de planta.
+     */
+    public EnvaseFisico buscarPorId(String idBolson) throws ValidacionScrapException {
         return envaseRepository.findById(idBolson)
-                .orElseThrow(() -> new com.bolsanueva.exception.ValidacionScrapException("El bulto '" + idBolson + "' no se encuentra registrado en el SGC."));
+                .orElseThrow(() -> new ValidacionScrapException("El bulto '" + idBolson + "' no se encuentra registrado en el SGC."));
     }
 
+    /**
+     * Recupera el lote e invoca la ticketera térmica para reimpresión por daño.
+     */
     public void dispararReimpresionEtiqueta(String idBolson) throws Exception {
         EnvaseFisico envase = envaseRepository.findById(idBolson)
-                .orElseThrow(() -> new com.bolsanueva.exception.ValidacionScrapException("El envase especificado no existe."));
+                .orElseThrow(() -> new ValidacionScrapException("El envase especificado no existe."));
 
         if (envase.getLoteActual() == null) {
-            throw new com.bolsanueva.exception.ValidacionScrapException("El bulto existe pero aún no registra pesaje ni lote asignado en báscula.");
+            throw new ValidacionScrapException("El bulto existe pero aún no registra pesaje ni lote asignado en báscula.");
         }
 
-        // Invoca tu método de barras compacto v6.7
+        // Genera el código físico usando las variables inyectadas de la clase superior
         barcodeService.generarCodigoBarraCompleto(envase.getIdBolson(), envase.getLoteActual().getIdLote());
     }
 }

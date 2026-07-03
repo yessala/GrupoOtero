@@ -71,6 +71,16 @@ public class EvaluadorScrapService {
             throw new ValidacionScrapException("🚨 ENVASE DESCARTADO - NO UTILIZAR");
         }
 
+        // ========================================================================
+        // 🔒 AQUÍ VA EL BLINDAJE: CONTROL DE INYECCIÓN CONSECUTIVA EN BALANZA
+        // ========================================================================
+        if (!"DISPONIBLE".equalsIgnoreCase(envase.getEstado())) {
+            String loteActivo = (envase.getLoteActual() != null) ? envase.getLoteActual().getIdLote() : "DESCONOCIDO";
+            throw new ValidacionScrapException("🚨 OPERACIÓN RECHAZADA: El bolsón '" + idBolson +
+                    "' ya cuenta con un pesaje activo (Lote: " + loteActivo + ") y está en estado [" + envase.getEstado() + "]. " +
+                    "Debe ser liberado en la Tolva de Vaciado antes de admitir un nuevo loteo.");
+        }
+
         long totalHistorico = loteRepository.countByTipoEnvase(tipoEnvase);
         long proximoCorrelativo = totalHistorico + 1;
 
@@ -78,7 +88,6 @@ public class EvaluadorScrapService {
         String mmyy = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMyy"));
         String inicialColor = loteObjeto.getColorDestino().substring(0, 1).toUpperCase();
 
-        // BUENAS PRÁCTICAS: Enhanced Switch (Switch como expresión moderno, evita olvidos de break y variables redundantes)
         String loteEstructurado = switch (tipoEnvase) {
             case "ENV-01" -> String.format("%s-%s-%s-%s-%s-%s-%s",
                     mmyy, xxxxx,
@@ -164,16 +173,6 @@ public class EvaluadorScrapService {
 
         if ("OBSOLETO".equalsIgnoreCase(envase.getEstado())) {
             throw new ValidacionScrapException("🚨 ENVASE DESCARTADO - NO UTILIZAR");
-        }
-
-        // ========================================================================
-        // NUEVO BLINDAJE INDUSTRIAL: CONTROL DE INYECCIÓN CONSECUTIVA
-        // ========================================================================
-        if (!"DISPONIBLE".equalsIgnoreCase(envase.getEstado())) {
-            String loteActivo = (envase.getLoteActual() != null) ? envase.getLoteActual().getIdLote() : "DESCONOCIDO";
-            throw new ValidacionScrapException("🚨 OPERACIÓN RECHAZADA: El bolsón '" + idBolson +
-                    "' ya cuenta con un pesaje activo (Lote: " + loteActivo + ") y está en estado [" + envase.getEstado() + "]. " +
-                    "Debe ser liberado en la Tolva de Vaciado antes de admitir un nuevo loteo.");
         }
 
         TrazabilidadLotes loteContenido = envase.getLoteActual();

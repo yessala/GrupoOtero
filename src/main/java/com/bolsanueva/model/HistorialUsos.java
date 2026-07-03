@@ -37,7 +37,7 @@ public class HistorialUsos {
     @Column(length = 30, nullable = false)
     private String ubicacionDestino;
 
-    @Column(nullable = false)
+    @Column(name= "fecha_movimiento", nullable = false)
     private LocalDateTime fechaMovimiento;
 
     @Column(length = 255)

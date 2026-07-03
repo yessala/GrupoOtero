@@ -166,6 +166,16 @@ public class EvaluadorScrapService {
             throw new ValidacionScrapException("🚨 ENVASE DESCARTADO - NO UTILIZAR");
         }
 
+        // ========================================================================
+        // NUEVO BLINDAJE INDUSTRIAL: CONTROL DE INYECCIÓN CONSECUTIVA
+        // ========================================================================
+        if (!"DISPONIBLE".equalsIgnoreCase(envase.getEstado())) {
+            String loteActivo = (envase.getLoteActual() != null) ? envase.getLoteActual().getIdLote() : "DESCONOCIDO";
+            throw new ValidacionScrapException("🚨 OPERACIÓN RECHAZADA: El bolsón '" + idBolson +
+                    "' ya cuenta con un pesaje activo (Lote: " + loteActivo + ") y está en estado [" + envase.getEstado() + "]. " +
+                    "Debe ser liberado en la Tolva de Vaciado antes de admitir un nuevo loteo.");
+        }
+
         TrazabilidadLotes loteContenido = envase.getLoteActual();
         String ubicacionDestinoMapeada = "PLANTA_" + plantaDestino.toUpperCase();
 

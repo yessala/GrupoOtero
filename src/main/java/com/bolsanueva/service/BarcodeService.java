@@ -51,7 +51,7 @@ public class BarcodeService {
         g2d.dispose();
 
         // RUTA DE DESARROLLO EN WINDOWS
-        String rutaCarpeta = "C:/Users/Pcp4/Documents/Programa/recuperadora/src/main/resources/static/etiquetas/";
+        String rutaCarpeta = "E:/Documentos/Programa/recuperadora/src/main/resources/static/etiquetas/";
         Path pathDirectorio = Paths.get(rutaCarpeta);
         
         if (!Files.exists(pathDirectorio)) {

@@ -246,40 +246,44 @@ public class EvaluadorScrapService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    // ========================================================================
-    // 🔒 MÓDULO DE BAJAS: DECOMISO DEFINITIVO DE ENVASES
-    // ========================================================================
-
+    /**
+     * Procesa el decomiso definitivo de un bulto defectuoso.
+     * BUENAS PRÁCTICAS: Restricción estricta de estado vacío (DISPONIBLE) para proteger material activo.
+     */
     @Transactional
     public EnvaseFisico procesarBajaDefinitiva(String idBolson, String motivoDescarte) throws Exception {
-        // 1. Buscamos el bulto
         EnvaseFisico envase = envaseRepository.findById(idBolson)
                 .orElseThrow(() -> new ValidacionScrapException("El bulto '" + idBolson + "' no existe."));
 
-        // 2. Validamos que no esté ya de baja
         if ("OBSOLETO".equalsIgnoreCase(envase.getEstado())) {
             throw new ValidacionScrapException("El bolsón ya se encuentra dado de baja en el SGC.");
         }
 
-        String estadoAnterior = envase.getEstado();
-        String ubicacionAnterior = envase.getUbicacionActual();
-        TrazabilidadLotes loteQueTenia = envase.getLoteActual();
+        // ========================================================================
+        // 🔒 REGLA DE ORO DE PLANTA: CONTROL DE CONTENEDOR VACÍO
+        // ========================================================================
+        if (!"DISPONIBLE".equalsIgnoreCase(envase.getEstado())) {
+            throw new ValidacionScrapException("🚨 RECHAZO SGC: El envase '" + idBolson +
+                    "' no se puede decomisar porque contiene un lote activo en tránsito. " +
+                    "Debe registrar el vaciado en Tolva antes de proceder con la baja definitiva.");
+        }
 
-        // 3. Modificamos el maestro: pasa a OBSOLETO, se rompe el lote y va a zona de descarte
+        String ubicacionAnterior = envase.getUbicacionActual();
+
+        // Modificamos el maestro: pasa a OBSOLETO y va a zona de descarte (loteActual ya es null por estar DISPONIBLE)
         envase.setEstado("OBSOLETO");
-        envase.setLoteActual(null);
         envase.setUbicacionActual("ZONA_DESCARTE");
         envase = envaseRepository.save(envase);
 
-        // 4. Asentamos el hito en la línea de tiempo para la auditoría de la planta
+        // Asentamos el hito en la línea de tiempo para la auditoría
         HistorialUsos log = new HistorialUsos();
         log.setEnvase(envase);
-        log.setLoteAsociado(loteQueTenia); // Guardamos el lote que dañó el bulto, si aplica
+        log.setLoteAsociado(null); // Entra nulo de forma segura ya que el bulto estaba vacío
         log.setOperacion("BAJA_SGC");
         log.setUbicacionOrigen(ubicacionAnterior);
         log.setUbicacionDestino("ZONA_DESCARTE");
         log.setFechaMovimiento(LocalDateTime.now());
-        log.setDetalleAuditoria("DECOMISO INDUSTRIAL - Motivo: " + motivoDescarte.toUpperCase() + " (Estado anterior: " + estadoAnterior + ")");
+        log.setDetalleAuditoria("DECOMISO INDUSTRIAL - Motivo: " + motivoDescarte.toUpperCase());
         historialRepository.save(log);
 
         return envase;

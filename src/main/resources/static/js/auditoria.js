@@ -45,8 +45,8 @@ async function ejecutarConsulta(event) {
     }
 
     // VALIDACIÓN LOCAL 1: Expresión regular reglamentaria del SGC
-    const regexFormatoBolsón = /^ENV-\d{2}-\d{4}$/;
-    if (!regexFormatoBolsón.test(idBolson)) {
+    const regexFormatoBolson = /^ENV-\d{2}-\d{4}$/;
+    if (!regexFormatoBolson.test(idBolson)) {
         renderizarEstadoAlerta("🚨", "FORMATO ERRONEO", `El código '${idBolson}' no cumple con la norma de planta (ENV-XX-XXXX).`, "alert-danger");
         if (botonSubmit) {
             botonSubmit.disabled = false;
@@ -65,15 +65,15 @@ async function ejecutarConsulta(event) {
 
     try {
         if (tipoReporte === "ACTUAL") {
-            // -----------------------------------------------------------------
-            // FLUJO A: CONSULTA DE ESTADO ACTUAL UNIFICADO
-            // -----------------------------------------------------------------
+            // FLUJO A: Estado actual unificado
             const response = await fetch(`http://localhost:8080/api/bolsones/consultar/${idBolson}`);
             const data = await response.json();
 
             if (!response.ok || data.status === "ERROR") throw new Error(data.mensaje);
 
-            // CASO A.1: El contenedor fue dado de baja definitivamente (OBSOLETO)
+            panelResultado.className = "alert alert-success shadow-sm p-4 h-100 text-start";
+
+            // CASO A.1: El bulto ya está destruido/obsoleto
             if (data.estado === "OBSOLETO") {
                 panelResultado.className = "alert alert-dark shadow-sm p-4 h-100 text-start";
                 containerDinamico.innerHTML = `
@@ -83,14 +83,13 @@ async function ejecutarConsulta(event) {
                         <strong>Ubicación Actual:</strong> <span class="text-white bg-dark px-2 rounded">${data.ubicacionActual}</span><br>
                         <strong>Estado SGC:</strong> <span class="text-danger fw-bold">OBSOLETO / DECOMISADO</span>
                         <hr class="my-3">
-                        <p class="small text-muted mb-0 text-center">Este contenedor fue retirado por control de calidad. Las llaves de pesaje están bloqueadas.</p>
+                        <p class="small text-muted mb-0 text-center">Este contenedor fue retirado por control de calidad. Las llaves de pesaje están de baja.</p>
                     </div>
                 `;
                 return;
             }
 
-            // CASO A.2: El contenedor está limpio y disponible en depósito
-            panelResultado.className = "alert alert-success shadow-sm p-4 h-100 text-start";
+            // CASO A.2: El contenedor está limpio y vacío (DISPONIBLE). Permitimos la baja.
             if (!data.loteActual) {
                 containerDinamico.innerHTML = `
                     <h4 class="fw-bold text-success text-center mb-3">📦 CONTENEDOR DISPONIBLE</h4>
@@ -104,7 +103,7 @@ async function ejecutarConsulta(event) {
                     </button>
                 `;
             } else {
-                // CASO A.3: El contenedor posee un lote y peso activo en tránsito
+                // CASO A.3: El contenedor posee un lote activo. Bloqueamos la baja desde la interfaz.
                 containerDinamico.innerHTML = `
                     <h4 class="fw-bold text-success text-center mb-3">📝 TRAZABILIDAD ENCONTRADA</h4>
                     <div class="border-top pt-3 fs-5 mb-4">
@@ -113,13 +112,13 @@ async function ejecutarConsulta(event) {
                         <strong>Peso Neto:</strong> <span class="fw-bold">${data.loteActual.pesoNeto} KG</span><br>
                         <strong>Ubicación Logística:</strong> <span class="text-secondary fw-bold">${data.ubicacionActual}</span>
                         <hr class="my-3">
-                        <button id="btnReimprimir" class="btn btn-warning w-100 fw-bold fs-5 py-2 mb-2" onclick="reimprimirLotePorDeterioro('${data.idBolson}')">
+                        <button id="btnReimprimir" class="btn btn-warning w-100 fw-bold fs-5 py-2" onclick="reimprimirLotePorDeterioro('${data.idBolson}')">
                             🖨️ REIMPRIMIR ETIQUETA ACTIVA
                         </button>
                     </div>
-                    <button class="btn btn-outline-danger btn-sm w-100 fw-bold py-2" onclick="solicitarBajaContenedor('${data.idBolson}')">
-                        🚨 DECOMISAR Y ANULAR LOTEO ACTUAL
-                    </button>
+                    <div class="alert alert-warning border border-warning text-center small mb-0 py-2">
+                        ⚠️ <strong>Restricción SGC:</strong> Este envase no puede ser dado de baja porque contiene material activo en tránsito. Debe registrar su vaciado en Tolva previamente.
+                    </div>
                 `;
             }
 

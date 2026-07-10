@@ -231,7 +231,7 @@ public class EvaluadorScrapService {
         EnvaseFisico envase = envaseRepository.findById(idBolson)
                 .orElseThrow(() -> new ValidacionScrapException("El bulto '" + idBolson + "' no está registrado en el sistema."));
 
-        // Ahora este método va a compilar de una porque ya existe en el HistorialUsosRepository
+        // Ahora este metodo va a compilar de una porque ya existe en el HistorialUsosRepository
         java.util.List<HistorialUsos> listaCompleta = historialRepository.findByEnvaseOrderByFechaMovimientoAsc(envase);
 
         if (desdeStr == null || hastaStr == null || desdeStr.isEmpty() || hastaStr.isEmpty()) {
@@ -287,5 +287,191 @@ public class EvaluadorScrapService {
         historialRepository.save(log);
 
         return envase;
+    }
+
+    // ========================================================================
+    // MÓDULO DE TRANSFORMACIÓN LOGÍSTICA: VACIADO Y CO-PROCESAMIENTO DINÁMICO
+    // ========================================================================
+
+    @Transactional(rollbackFor = Exception.class)
+    public EnvaseFisico procesarTransformacionIndustrial(com.bolsanueva.dto.TransformacionScrapDTO dto) throws Exception {
+
+        if (dto.getPesoDestino() <= 0) {
+            throw new ValidacionScrapException("ERROR SGC: El peso resultante de la estación debe ser mayor a 0 kg.");
+        }
+
+        // Variables de herencia de trazabilidad inmutable
+        String materialHeredado = dto.getMaterialManual();
+        String procedenciaHeredada = dto.getProcedenciaManual();
+        boolean esLaminadoHeredado = dto.isLaminadoManual();
+        boolean tieneTintaHeredado = dto.isTintaManual();
+        String colorHeredado = dto.getColorManual();
+
+        // -----------------------------------------------------------------
+        // PASO 1: DEPURACIÓN Y VACIADO DEL ENVASE DE ORIGEN (SI EXISTE)
+        // -----------------------------------------------------------------
+        if (dto.getIdBolsonOrigen() != null && !dto.getIdBolsonOrigen().isEmpty() && !"TORTA".equalsIgnoreCase(dto.getIdBolsonOrigen())) {
+
+            EnvaseFisico envaseOrigen = envaseRepository.findById(dto.getIdBolsonOrigen().toUpperCase())
+                    .orElseThrow(() -> new ValidacionScrapException("ERROR SGC: El bulto de entrada '" + dto.getIdBolsonOrigen() + "' no existe en el sistema."));
+
+            if ("DISPONIBLE".equalsIgnoreCase(envaseOrigen.getEstado())) {
+                throw new ValidacionScrapException("🚨 CONFLICTO SGC: El envase de entrada '" + dto.getIdBolsonOrigen() + "' ya está vacío. Operación abortada.");
+            }
+            if ("OBSOLETO".equalsIgnoreCase(envaseOrigen.getEstado())) {
+                throw new ValidacionScrapException("🚨 ENVASE DESCARTADO: El bulto origen está fuera de servicio por descarte.");
+            }
+
+            TrazabilidadLotes loteOrigen = envaseOrigen.getLoteActual();
+            if (loteOrigen == null) {
+                throw new ValidacionScrapException("ERROR SGC: El bulto origen no cuenta con una ficha de lote activa en MySQL.");
+            }
+
+            // Extracción estricta de variables para la herencia hacia el lote hijo
+            materialHeredado = loteOrigen.getMaterial();
+            procedenciaHeredada = loteOrigen.getProcedencia();
+            esLaminadoHeredado = loteOrigen.isEsLaminado();
+            tieneTintaHeredado = loteOrigen.isTieneTinta();
+            colorHeredado = loteOrigen.getColorDestino();
+
+            // Liberación física del envase consumido para su reingreso al circuito
+            envaseOrigen.setEstado("DISPONIBLE");
+            envaseOrigen.setLoteActual(null);
+            envaseRepository.save(envaseOrigen);
+
+            // Registro en la bitácora industrial del vaciado
+            HistorialUsos logVaciado = new HistorialUsos();
+            logVaciado.setEnvase(envaseOrigen);
+            logVaciado.setLoteAsociado(loteOrigen);
+            logVaciado.setOperacion("VACIADO_TRANSFORMACION");
+            logVaciado.setUbicacionOrigen(dto.getEstacionTrabajo());
+            logVaciado.setUbicacionDestino("REC_DEPOSITO");
+            logVaciado.setFechaMovimiento(LocalDateTime.now());
+            logVaciado.setDetalleAuditoria("Contenido consumido en " + dto.getEstacionTrabajo() + " para dar origen a lote secundario.");
+            historialRepository.save(logVaciado);
+
+        } else if ("TORTA".equalsIgnoreCase(dto.getIdBolsonOrigen())) {
+            // Caso Trituradora de Laminación: Reducción virtual de stocks asentada en auditoría
+            HistorialUsos logTorta = new HistorialUsos();
+            logTorta.setEnvase(null);
+            logTorta.setLoteAsociado(null);
+            logTorta.setOperacion("CONSUMO_TORTAS");
+            logTorta.setUbicacionOrigen("ZONA_EXTRUSION");
+            logTorta.setUbicacionDestino(dto.getEstacionTrabajo());
+            logTorta.setFechaMovimiento(LocalDateTime.now());
+            logTorta.setDetalleAuditoria("Consumo y reducción de stock de tortas de laminación en báscula por: " + dto.getPesoDestino() + " KG.");
+            historialRepository.save(logTorta);
+        }
+
+        // -----------------------------------------------------------------
+        // PASO 2: VERIFICACIÓN O REGISTRO "ON THE FLY" DEL ENVASE DESTINO
+        // -----------------------------------------------------------------
+        EnvaseFisico envaseDestino;
+        String idDestinoRaw = dto.getIdBolsonDestino();
+
+        if (idDestinoRaw == null || idDestinoRaw.isEmpty() || "AUTO".equalsIgnoreCase(idDestinoRaw)) {
+            // Generación automatizada del ID correlativo si el operario no escaneó un bulto rígido
+            Optional<Integer> maxCorrelativo = envaseRepository.findMaxCorrelativoByTipoEnvase(dto.getTipoEnvaseDestino());
+            int siguienteNumero = maxCorrelativo.orElse(0) + 1;
+            String nuevoId = dto.getTipoEnvaseDestino() + "-" + String.format("%04d", siguienteNumero);
+
+            envaseDestino = new EnvaseFisico();
+            envaseDestino.setIdBolson(nuevoId);
+            envaseDestino.setTipoEnvase(dto.getTipoEnvaseDestino());
+            envaseDestino.setCorrelativo(siguienteNumero);
+            envaseDestino.setEstado("DISPONIBLE");
+            envaseDestino.setUbicacionActual("REC_DEPOSITO");
+            envaseDestino = envaseRepository.save(envaseDestino);
+
+            // Imprime su cédula inmutable de identidad
+            barcodeService.generarCodigoBarraCompleto(envaseDestino.getIdBolson(), envaseDestino.getIdBolson());
+        } else {
+            // El operario escaneó un envase físico: Verificamos si existe o lo damos de alta automática
+            Optional<EnvaseFisico> envaseOpt = envaseRepository.findById(idDestinoRaw.toUpperCase());
+            if (envaseOpt.isPresent()) {
+                envaseDestino = envaseOpt.get();
+                // BLINDAJE INDUSTRIAL CRÍTICO: Control de inyección consecutiva incorporado
+                if (!"DISPONIBLE".equalsIgnoreCase(envaseDestino.getEstado())) {
+                    throw new ValidacionScrapException("🚨 RECHAZO BÁSCULA: El envase destino '" + idDestinoRaw +
+                            "' ya cuenta con un pesaje activo y está en estado [" + envaseDestino.getEstado() + "].");
+                }
+            } else {
+                // Registro "On the Fly" automático si es un bulto virgen ingresando a planta
+                int correlativoInt = Integer.parseInt(idDestinoRaw.substring(idDestinoRaw.lastIndexOf("-") + 1));
+                envaseDestino = new EnvaseFisico();
+                envaseDestino.setIdBolson(idDestinoRaw.toUpperCase());
+                envaseDestino.setTipoEnvase(dto.getTipoEnvaseDestino());
+                envaseDestino.setCorrelativo(correlativoInt);
+                envaseDestino.setEstado("DISPONIBLE");
+                envaseDestino.setUbicacionActual("REC_DEPOSITO");
+                envaseDestino = envaseRepository.save(envaseDestino);
+
+                barcodeService.generarCodigoBarraCompleto(envaseDestino.getIdBolson(), envaseDestino.getIdBolson());
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // PASO 3: ENSAMBLADO MATRICIAL DEL LOTE RESULTANTE (HIJO)
+        // -----------------------------------------------------------------
+        long totalHistorico = loteRepository.countByTipoEnvase(dto.getTipoEnvaseDestino());
+        long proximoCorrelativo = totalHistorico + 1;
+        String xxxxx = String.format("%05d", proximoCorrelativo);
+        String mmyy = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMyy"));
+        String inicialColor = (colorHeredado != null && !colorHeredado.isEmpty()) ? colorHeredado.substring(0, 1).toUpperCase() : "X";
+
+        String loteEstructurado = switch (dto.getTipoEnvaseDestino()) {
+            case "ENV-01" -> String.format("%s-%s-%s-%s-%s-%s-%s",
+                    mmyy, xxxxx,
+                    procedenciaHeredada.toUpperCase(),
+                    materialHeredado.toUpperCase(),
+                    esLaminadoHeredado ? "LY" : "LN",
+                    tieneTintaHeredado ? "TY" : "TN",
+                    inicialColor);
+
+            case "ENV-02" -> String.format("%s-%s-PP-%s", mmyy, xxxxx, inicialColor);
+            case "ENV-03" -> String.format("%s-%s-TRIP-%s", mmyy, xxxxx, inicialColor);
+            case "ENV-04" -> String.format("%s-%s-TRIL-%s", mmyy, xxxxx, inicialColor);
+            case "ENV-05" -> String.format("%s-%s-PPL-%s", mmyy, xxxxx, inicialColor);
+
+            default -> throw new ValidacionScrapException("🚨 Tipo de contenedor destino no parametrizado en matriz SGC.");
+        };
+
+        // -----------------------------------------------------------------
+        // PASO 4: PERSISTENCIA E INYECCIÓN DE ESTADOS EN CASCADA
+        // -----------------------------------------------------------------
+        TrazabilidadLotes nuevoLote = new TrazabilidadLotes();
+        nuevoLote.setIdLote(loteEstructurado);
+        nuevoLote.setTipoEnvase(dto.getTipoEnvaseDestino());
+        nuevoLote.setCorrelativoNumerico(proximoCorrelativo);
+        nuevoLote.setPesoNeto(dto.getPesoDestino());
+        nuevoLote.setMaterial(materialHeredado);
+        nuevoLote.setProcedencia(procedenciaHeredada);
+        nuevoLote.setEsLaminado(esLaminadoHeredado);
+        nuevoLote.setTieneTinta(tieneTintaHeredado);
+        nuevoLote.setColorDestino(colorHeredado);
+        nuevoLote.setFechaPesaje(LocalDateTime.now());
+        TrazabilidadLotes lotePersistido = loteRepository.save(nuevoLote);
+
+        // Actualización del maestro de bultos destino
+        envaseDestino.setEstado("NO_DISPONIBLE");
+        envaseDestino.setUbicacionActual("DEPOSITO_TRANSITO");
+        envaseDestino.setLoteActual(lotePersistido);
+        envaseDestino = envaseRepository.saveAndFlush(envaseDestino);
+
+        // Bitácora de llenado y pesaje
+        HistorialUsos logLlenado = new HistorialUsos();
+        logLlenado.setEnvase(envaseDestino);
+        logLlenado.setLoteAsociado(lotePersistido);
+        logLlenado.setOperacion("LLENADO_TRANSFORMACION");
+        logLlenado.setUbicacionOrigen(dto.getEstacionTrabajo());
+        logLlenado.setUbicacionDestino("DEPOSITO_TRANSITO");
+        logLlenado.setFechaMovimiento(LocalDateTime.now());
+        logLlenado.setDetalleAuditoria("Lote estructurado de salida generado bajo norma ISO. Rendimiento de co-procesamiento completo.");
+        historialRepository.save(logLlenado);
+
+        // Emisión de la etiqueta de barras final para el paletizado
+        barcodeService.generarCodigoBarraCompleto(loteEstructurado, loteEstructurado);
+
+        return envaseDestino;
     }
 }

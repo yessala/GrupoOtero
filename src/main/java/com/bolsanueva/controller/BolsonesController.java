@@ -4,7 +4,6 @@ import com.bolsanueva.model.EnvaseFisico;
 import com.bolsanueva.model.TrazabilidadLotes;
 import com.bolsanueva.service.EvaluadorScrapService;
 import com.bolsanueva.exception.ValidacionScrapException;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -204,5 +203,25 @@ public class BolsonesController {
             return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
-
+    // ========================================================================
+    // NUEVO ENDPOINT 9: SGC - CO-PROCESAMIENTO Y PROCESO DE TRANSFORMACIÓN
+    // ========================================================================
+    @PostMapping("/transformar")
+    public ResponseEntity<?> ejecutarTransformacionIndustrial(@RequestBody com.bolsanueva.dto.TransformacionScrapDTO dto) {
+        try {
+            com.bolsanueva.model.EnvaseFisico envaseResultante = evaluadorService.procesarTransformacionIndustrial(dto);
+            return ResponseEntity.ok(Map.of(
+                    "status", "OK",
+                    "mensaje", "Co-procesamiento completado con éxito.",
+                    "idBolson", envaseResultante.getIdBolson(),
+                    "estado", envaseResultante.getEstado(),
+                    "ubicacionActual", envaseResultante.getUbicacionActual(),
+                    "loteGenerado", envaseResultante.getLoteActual().getIdLote()
+            ));
+        } catch (ValidacionScrapException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        }
+    }
 }

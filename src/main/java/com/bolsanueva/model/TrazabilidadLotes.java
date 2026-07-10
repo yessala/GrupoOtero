@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 /**
  * ENTIDAD DE TRAZABILIDAD DE MATERIA PRIMA / WIP / TERMINADO
  * @author Autor: Yessalim Salazar
- * @version 6.3 (Ficha de Contenido Normativa ISO)
+ * @version 6.4 (Ficha de Contenido Normativa ISO - Atributo Sincronizado)
  */
 @Entity
 @Table(name = "trazabilidad_lotes")
@@ -17,6 +17,12 @@ public class TrazabilidadLotes {
     @Id
     @Column(name = "id_lote", length = 50)
     private String idLote; // MMYY-XXXXX-...
+
+    // ========================================================================
+    // 🔍 CORRECCIÓN: DECLARACIÓN DEL ATRIBUTO QUE REQUERÍA EL SERVICE
+    // ========================================================================
+    @Column(name = "tipo_envase", length = 10)
+    private String tipoEnvase; // ENV-01, ENV-02, ENV-03, etc.
 
     @Column(name = "correlativo_numerico", nullable = false)
     private long correlativoNumerico; // Control numérico continuo interno de planta

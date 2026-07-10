@@ -203,4 +203,55 @@ class AppTest {
 
         verify(historialRepository, times(1)).save(any(HistorialUsos.class));
     }
+    // ========================================================================
+    // PRUEBA 7: SGC - TRAZABILIDAD DE TRANSFORMACIÓN EN CADENA (NUEVO)
+    // ========================================================================
+    @Test
+    @DisplayName("Debería consumir un bulto origen, liberar su disponibilidad y heredar datos al nuevo lote hijo")
+    void testTransformacionIndustrialExitosa() throws Exception {
+        // 1. Armamos el escenario de entrada simulado
+        com.bolsanueva.dto.TransformacionScrapDTO dtoInput = new com.bolsanueva.dto.TransformacionScrapDTO();
+        dtoInput.setIdBolsonOrigen("ENV-03-0012");
+        dtoInput.setIdBolsonDestino("AUTO"); // Alta automática solicitada
+        dtoInput.setTipoEnvaseDestino("ENV-02");
+        dtoInput.setPesoDestino(280.0);
+        dtoInput.setEstacionTrabajo("PELLETIZADORA_1");
+
+        // Datos del contenedor que va a ingresar a la tolva a morir
+        EnvaseFisico envaseOrigenMock = new EnvaseFisico();
+        envaseOrigenMock.setIdBolson("ENV-03-0012");
+        envaseOrigenMock.setEstado("NO_DISPONIBLE");
+
+        TrazabilidadLotes loteOrigenMock = new TrazabilidadLotes();
+        loteOrigenMock.setMaterial("PP");
+        loteOrigenMock.setColorDestino("VERDE");
+        loteOrigenMock.setProcedencia("CINT");
+        envaseOrigenMock.setLoteActual(loteOrigenMock);
+
+        // 2. Mokeamos las respuestas relacionales de MySQL
+        when(envaseRepository.findById("ENV-03-0012")).thenReturn(Optional.of(envaseOrigenMock));
+        when(envaseRepository.findMaxCorrelativoByTipoEnvase("ENV-02")).thenReturn(Optional.of(5));
+        when(loteRepository.countByTipoEnvase("ENV-02")).thenReturn(5L);
+
+        when(envaseRepository.save(any(EnvaseFisico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(loteRepository.save(any(TrazabilidadLotes.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 3. Ejecutamos el hilo del Service
+        EnvaseFisico bultoHijo = evaluadorService.procesarTransformacionIndustrial(dtoInput);
+
+        // 4. Verificaciones de la Regla de Oro
+        assertNotNull(bultoHijo);
+        assertEquals("ENV-02-0006", bultoHijo.getIdBolson()); // 5 + 1
+        assertEquals("NO_DISPONIBLE", bultoHijo.getEstado());
+        assertEquals("DEPOSITO_TRANSITO", bultoHijo.getUbicacionActual());
+        assertEquals("VERDE", bultoHijo.getLoteActual().getColorDestino()); // ¡Heredó el color de forma fidedigna!
+        assertEquals("PP", bultoHijo.getLoteActual().getMaterial());       // ¡Heredó el material!
+
+        // Comprobamos que el origen haya quedado limpio y libre para volverse a usar
+        assertEquals("DISPONIBLE", envaseOrigenMock.getEstado());
+        assertNull(envaseOrigenMock.getLoteActual());
+
+        verify(historialRepository, times(2)).save(any(HistorialUsos.class)); // Log de vaciado + Log de llenado
+        verify(barcodeService, times(2)).generarCodigoBarraCompleto(anyString(), anyString());
+    }
 }

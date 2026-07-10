@@ -132,7 +132,7 @@ public class EvaluadorScrapService {
     }
 
     @Transactional
-    public EnvaseFisico procesarLlenadoEnBalanza(String idBolson, double pesoNeto, String loteIgnorado, TrazabilidadLotes loteObjeto) throws Exception {
+    public EnvaseFisico procesarLlenadoEnBalanza(String idBolson, double pesoNeto, TrazabilidadLotes loteObjeto) throws Exception {
         String tipoEnvase = idBolson.substring(0, 6).toUpperCase();
         return this.procesarLlenadoConCorrelativo(idBolson, pesoNeto, tipoEnvase, loteObjeto);
     }

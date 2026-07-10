@@ -184,4 +184,25 @@ public class BolsonesController {
             return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
         }
     }
+
+    // ========================================================================
+    // NUEVO ENDPOINT 8: AUDITORÍA - DECOMISO Y BAJA DEFINITIVA
+    // ========================================================================
+    @PostMapping("/baja")
+    public ResponseEntity<?> darDeBajaContenedor(
+            @RequestParam("idBolson") String idBolson,
+            @RequestParam("motivo") String motivo) {
+        try {
+            EnvaseFisico obsoleto = evaluadorService.procesarBajaDefinitiva(idBolson.toUpperCase(), motivo);
+            return ResponseEntity.ok(Map.of(
+                    "status", "OK",
+                    "mensaje", "El envase " + obsoleto.getIdBolson() + " ha sido retirado de la circulación y marcado como OBSOLETO."
+            ));
+        } catch (ValidacionScrapException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("status", "ERROR", "mensaje", e.getMessage()));
+        }
+    }
+
 }

@@ -245,4 +245,43 @@ public class EvaluadorScrapService {
                 .filter(log -> !log.getFechaMovimiento().isBefore(fechaInicio) && !log.getFechaMovimiento().isAfter(fechaFin))
                 .collect(java.util.stream.Collectors.toList());
     }
+
+    // ========================================================================
+    // 🔒 MÓDULO DE BAJAS: DECOMISO DEFINITIVO DE ENVASES
+    // ========================================================================
+
+    @Transactional
+    public EnvaseFisico procesarBajaDefinitiva(String idBolson, String motivoDescarte) throws Exception {
+        // 1. Buscamos el bulto
+        EnvaseFisico envase = envaseRepository.findById(idBolson)
+                .orElseThrow(() -> new ValidacionScrapException("El bulto '" + idBolson + "' no existe."));
+
+        // 2. Validamos que no esté ya de baja
+        if ("OBSOLETO".equalsIgnoreCase(envase.getEstado())) {
+            throw new ValidacionScrapException("El bolsón ya se encuentra dado de baja en el SGC.");
+        }
+
+        String estadoAnterior = envase.getEstado();
+        String ubicacionAnterior = envase.getUbicacionActual();
+        TrazabilidadLotes loteQueTenia = envase.getLoteActual();
+
+        // 3. Modificamos el maestro: pasa a OBSOLETO, se rompe el lote y va a zona de descarte
+        envase.setEstado("OBSOLETO");
+        envase.setLoteActual(null);
+        envase.setUbicacionActual("ZONA_DESCARTE");
+        envase = envaseRepository.save(envase);
+
+        // 4. Asentamos el hito en la línea de tiempo para la auditoría de la planta
+        HistorialUsos log = new HistorialUsos();
+        log.setEnvase(envase);
+        log.setLoteAsociado(loteQueTenia); // Guardamos el lote que dañó el bulto, si aplica
+        log.setOperacion("BAJA_SGC");
+        log.setUbicacionOrigen(ubicacionAnterior);
+        log.setUbicacionDestino("ZONA_DESCARTE");
+        log.setFechaMovimiento(LocalDateTime.now());
+        log.setDetalleAuditoria("DECOMISO INDUSTRIAL - Motivo: " + motivoDescarte.toUpperCase() + " (Estado anterior: " + estadoAnterior + ")");
+        historialRepository.save(log);
+
+        return envase;
+    }
 }

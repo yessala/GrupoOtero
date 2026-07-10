@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGC - Co-Procesamiento y Transformación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/balanza.css">
+</head>
+<body>
+
+<!-- BARRA DE NAVEGACIÓN INDUSTRIAL -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold" href="index.html">🏭 SGC RECUPERADORA</a>
+        <div class="navbar-nav ms-auto gap-2">
+            <a class="btn btn-outline-light btn-sm" href="index.html">➕ Alta</a>
+            <a class="btn btn-outline-light btn-sm" href="balanza.html">⚖️ Recepción</a>
+            <a class="btn btn-warning btn-sm text-dark fw-bold active" href="transformacion.html">🔄 Procesos</a>
+            <a class="btn btn-outline-light btn-sm" href="auditoria.html">🔍 Historial</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-2">
+    <div class="row mb-3">
+        <div class="col text-center">
+            <h1 class="balanza-title">🔄 CO-PROCESAMIENTO Y TRANSFORMACIÓN</h1>
+            <p class="text-muted mb-2">Módulo de Consumo de Tolva y Loteo Hijo en Cascada</p>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+        <!-- Panel de Control del Maquinista -->
+        <div class="col-lg-6 col-md-8">
+            <div class="card shadow-sm panel-balanza">
+                <div class="card-header bg-primary text-white py-3">
+                    <h3 class="card-title mb-0 fs-5 text-center">Control de Línea de Producción</h3>
+                </div>
+                <div class="card-body p-4">
+                    <form id="formTransformacion">
+
+                        <!-- 1. Selección de Estación / Máquina -->
+                        <div class="mb-3">
+                            <label for="estacionTrabajo" class="form-label fw-bold">1. Seleccione Puesto de Trabajo:</label>
+                            <select id="estacionTrabajo" class="form-select input-industrial" required>
+                                <option value="" disabled selected>--- SELECCIONE MÁQUINA ---</option>
+                                <option value="PELLETIZADORA_1">Pelletizadora 1 (Salida ENV-02 o ENV-05)</option>
+                                <option value="PELLETIZADORA_2">Pelletizadora 2 (Salida ENV-05 o ENV-02)</option>
+                                <option value="TRITURADORA_COMUN">Trituradora Común (Salida ENV-03)</option>
+                                <option value="TRITURADORA_LAMINACION">Trituradora Laminación (Salida ENV-04)</option>
+                            </select>
+                        </div>
+
+                        <!-- 2. Escáner de Entrada (Origen) -->
+                        <div class="mb-3" id="bloqueOrigen">
+                            <label for="idBolsonOrigen" class="form-label fw-bold">2. ENTRADA: Escanear Bolsón a Procesar (Tolva):</label>
+                            <input type="text" id="idBolsonOrigen" class="form-control input-industrial text-uppercase" placeholder="ENV-01-XXXX o ENV-03-XXXX">
+                            <div class="form-text text-muted">La lectora tomará la trazabilidad de este bulto y lo vaciará al finalizar.</div>
+                        </div>
+
+                        <!-- 3. Tipo de Envase Destino -->
+                        <div class="mb-3">
+                            <label for="tipoEnvaseDestino" class="form-label fw-bold small">3. SALIDA: Tipo de Envase Resultante:</label>
+                            <select id="tipoEnvaseDestino" class="form-select input-industrial-sm" required disabled>
+                                <option value="" disabled selected>Seleccione máquina primero...</option>
+                            </select>
+                        </div>
+
+                        <!-- 4. Escáner de Salida (Destino) -->
+                        <div class="mb-3">
+                            <label for="idBolsonDestino" class="form-label fw-bold small">4. SALIDA: Escanear Contenedor Vacío (Balanza):</label>
+                            <input type="text" id="idBolsonDestino" class="form-control form-control-sm text-uppercase" placeholder="ENV-XX-XXXX o deje vacío para AUTO-ALTA">
+                        </div>
+
+                        <!-- 5. Báscula de Salida -->
+                        <div class="mb-3">
+                            <label for="pesoDestino" class="form-label fw-bold">5. SALIDA: Peso Neto Resultante (Kg):</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" id="pesoDestino" class="form-control input-industrial display-peso" placeholder="0.0" required>
+                                <span class="input-group-text fw-bold bg-secondary text-white fs-4">KG</span>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-primary fs-4 fw-bold py-3 shadow-sm">
+                                ⚙️ PROCESAR Y ENCADENAR LOTES
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Respuesta Dinámica del SGC -->
+        <div class="col-lg-5 col-md-8">
+            <div id="statusProceso" class="alert alert-secondary shadow-sm h-100 d-flex flex-column justify-content-center text-center p-4">
+                <div id="statusIcon" class="fs-1 mb-3">⚙️</div>
+                <h4 id="statusTitulo" class="fw-bold">Línea de Proceso Lista</h4>
+                <p id="statusMensaje" class="mb-0 fs-5 text-muted">Seleccione la máquina de la planta para comenzar el co-procesamiento de materiales.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/transformacion.js"></script>
+</body>
+</html>

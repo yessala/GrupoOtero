@@ -248,7 +248,7 @@ public class EvaluadorScrapService {
 
     /**
      * Procesa el decomiso definitivo de un bulto defectuoso.
-     * BUENAS PRÁCTICAS: Restricción estricta de estado vacío (DISPONIBLE) para proteger material activo.
+     * Restricción estricta de estado vacío (DISPONIBLE) para proteger material activo.
      */
     @Transactional
     public EnvaseFisico procesarBajaDefinitiva(String idBolson, String motivoDescarte) throws Exception {
